@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">SpotifyStreamer</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="no_artists_found_message">No artists were found</string>
+    <string name="error_finding_artists">Unknown error occured</string>
+</resources>
