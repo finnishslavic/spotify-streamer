@@ -3,7 +3,7 @@ package com.slavaware.spotifystreamer;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.util.Log;
 import android.view.View;
@@ -26,7 +26,7 @@ import kaaes.spotify.webapi.android.models.Artist;
 import kaaes.spotify.webapi.android.models.ArtistsPager;
 import retrofit.RetrofitError;
 
-public class SpotifySearchActivity extends ActionBarActivity {
+public class SpotifySearchActivity extends AppCompatActivity {
 
     public static final String TAG = SpotifySearchActivity.class.getSimpleName();
 
@@ -70,6 +70,7 @@ public class SpotifySearchActivity extends ActionBarActivity {
                 Intent showTopTracks = new Intent(SpotifySearchActivity.this, TopTracksActivity.class);
                 showTopTracks.putExtra(ARTIST_ID_KEY, artist.id);
                 showTopTracks.putExtra(ARTIST_NAME_KEY, artist.name);
+
                 startActivity(showTopTracks);
             }
         });

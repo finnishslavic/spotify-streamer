@@ -2,7 +2,8 @@ package com.slavaware.spotifystreamer;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
@@ -24,7 +25,7 @@ import kaaes.spotify.webapi.android.models.Track;
 import kaaes.spotify.webapi.android.models.Tracks;
 import retrofit.RetrofitError;
 
-public class TopTracksActivity extends ActionBarActivity {
+public class TopTracksActivity extends AppCompatActivity {
 
     public static final String TAG = TopTracksActivity.class.getSimpleName();
 
@@ -61,6 +62,12 @@ public class TopTracksActivity extends ActionBarActivity {
         tracksAdapter = new TracksAdapter(this);
         tracksAdapter.setTracks(Collections.EMPTY_LIST);
         listView.setAdapter(tracksAdapter);
+
+        ActionBar actionBar = getSupportActionBar();
+        actionBar.setTitle(R.string.top_tracks_activity_title);
+        final String artistName = getIntent().getStringExtra(SpotifySearchActivity.ARTIST_NAME_KEY);
+        actionBar.setSubtitle(artistName);
+        actionBar.setDisplayHomeAsUpEnabled(true);
 
         // Init other components
         spotifyApi = new SpotifyApi();
@@ -114,7 +121,7 @@ public class TopTracksActivity extends ActionBarActivity {
                 result = tracks.tracks;
             } catch (RetrofitError e) {
                 Log.e(TAG, "Error loading top tracks", e);
-                result = Collections.EMPTY_LIST;
+                result = null;
             }
 
             return result;
@@ -122,7 +129,9 @@ public class TopTracksActivity extends ActionBarActivity {
 
         @Override
         protected void onPostExecute(List<Track> tracks) {
-            if (tracks.size() <= 0) {
+            if (tracks == null) {
+                // most likely was interrupted or malformed request
+            } else if (tracks.size() <= 0) {
                 Toast.makeText(TopTracksActivity.this,
                         getString(R.string.no_tracks_found_message), Toast.LENGTH_SHORT).show();
                 setListItems(tracks);
