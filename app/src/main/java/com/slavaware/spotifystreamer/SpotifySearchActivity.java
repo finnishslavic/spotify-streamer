@@ -1,8 +1,13 @@
 package com.slavaware.spotifystreamer;
 
+import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.text.Editable;
+import android.util.Log;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
@@ -19,11 +24,15 @@ import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
 import kaaes.spotify.webapi.android.models.Artist;
 import kaaes.spotify.webapi.android.models.ArtistsPager;
-import retrofit.Callback;
 import retrofit.RetrofitError;
-import retrofit.client.Response;
 
 public class SpotifySearchActivity extends ActionBarActivity {
+
+    public static final String TAG = SpotifySearchActivity.class.getSimpleName();
+
+    public static final String SEARCH_TEXT_PARAM = "search_text";
+    public static final String ARTIST_ID_KEY = "artist_id_key";
+    public static final String ARTIST_NAME_KEY = "artist_name_key";
 
     @InjectView(R.id.list_view)
     ListView listView;
@@ -35,6 +44,7 @@ public class SpotifySearchActivity extends ActionBarActivity {
     private SpotifyService spotify;
     private SimpleTextWatcher searchTextWatcher;
     private ArtistAdapter artistsAdapter;
+    private SearchArtistsTask searchArtistsTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,6 +63,17 @@ public class SpotifySearchActivity extends ActionBarActivity {
             }
         };
 
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Artist artist = (Artist) parent.getAdapter().getItem(position);
+                Intent showTopTracks = new Intent(SpotifySearchActivity.this, TopTracksActivity.class);
+                showTopTracks.putExtra(ARTIST_ID_KEY, artist.id);
+                showTopTracks.putExtra(ARTIST_NAME_KEY, artist.name);
+                startActivity(showTopTracks);
+            }
+        });
+
         searchInput.addTextChangedListener(searchTextWatcher);
         artistsAdapter = new ArtistAdapter(this);
         artistsAdapter.setArtists(Collections.EMPTY_LIST);
@@ -66,7 +87,24 @@ public class SpotifySearchActivity extends ActionBarActivity {
     @Override
     protected void onDestroy() {
         searchInput.removeTextChangedListener(searchTextWatcher);
+        stopBackgroundSearch();
         super.onDestroy();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(SEARCH_TEXT_PARAM, searchInput.getText().toString());
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+
+        String savedText = savedInstanceState.getString(SEARCH_TEXT_PARAM);
+        searchInput.setText(savedText);
+        searchInput.setSelection(savedText.length());
+        performSearch(savedText);
     }
 
     private void performSearch(String searchText) {
@@ -74,43 +112,54 @@ public class SpotifySearchActivity extends ActionBarActivity {
             setListItems(Collections.EMPTY_LIST);
         }
 
-        spotify.searchArtists(searchText, new Callback<ArtistsPager>() {
-            @Override
-            public void success(ArtistsPager artistsPager, Response response) {
-                final List<Artist> artists = artistsPager.artists.items;
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (artists == null || artists.size() <= 0) {
-                            Toast.makeText(SpotifySearchActivity.this,
-                                    getString(R.string.no_artists_found_message), Toast.LENGTH_SHORT).show();
-                            setListItems(Collections.EMPTY_LIST);
-                        } else {
-                            setListItems(artists);
-                        }
-                    }
-                });
-            }
+        stopBackgroundSearch();
+        searchArtistsTask = new SearchArtistsTask();
+        searchArtistsTask.execute(searchText);
+    }
 
-            @Override
-            public void failure(RetrofitError error) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(SpotifySearchActivity.this,
-                                getString(R.string.error_finding_artists), Toast.LENGTH_SHORT).show();
-                        setListItems(Collections.EMPTY_LIST);
-                        // TODO: add better error handling
-                    }
-                });
-            }
-        });
-
+    private void stopBackgroundSearch() {
+        if (searchArtistsTask != null && !searchArtistsTask.isCancelled()) {
+            searchArtistsTask.cancel(true);
+            searchArtistsTask = null;
+        }
     }
 
     private void setListItems(List<Artist> artists) {
         artistsAdapter.setArtists(artists);
         artistsAdapter.notifyDataSetChanged();
+    }
+
+    public class SearchArtistsTask extends AsyncTask<String, Void, List<Artist>> {
+
+        @Override
+        protected List<Artist> doInBackground(String... params) {
+            if (params == null || params.length <= 0) {
+                throw new IllegalArgumentException("Search parameters must be provided");
+            }
+
+            String searchArtistText = params[0];
+            List<Artist> result;
+            try {
+                ArtistsPager pager = spotify.searchArtists(searchArtistText);
+                result = pager.artists.items;
+            } catch (RetrofitError e) {
+                Log.e(TAG, "Error loading artists", e);
+                result = Collections.EMPTY_LIST;
+            }
+
+            return result;
+        }
+
+        @Override
+        protected void onPostExecute(List<Artist> artists) {
+            if (artists.size() <= 0) {
+                Toast.makeText(SpotifySearchActivity.this,
+                        getString(R.string.no_artists_found_message), Toast.LENGTH_SHORT).show();
+                setListItems(artists);
+            } else {
+                setListItems(artists);
+            }
+        }
     }
 
 }
