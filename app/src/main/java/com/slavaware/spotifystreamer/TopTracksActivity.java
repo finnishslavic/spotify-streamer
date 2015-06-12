@@ -131,13 +131,13 @@ public class TopTracksActivity extends AppCompatActivity {
         protected void onPostExecute(List<Track> tracks) {
             if (tracks == null) {
                 // most likely was interrupted or malformed request
+                return;
             } else if (tracks.size() <= 0) {
                 Toast.makeText(TopTracksActivity.this,
                         getString(R.string.no_tracks_found_message), Toast.LENGTH_SHORT).show();
-                setListItems(tracks);
-            } else {
-                setListItems(tracks);
             }
+
+            setListItems(tracks);
         }
     }
 

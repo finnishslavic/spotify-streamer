@@ -145,7 +145,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
                 result = pager.artists.items;
             } catch (RetrofitError e) {
                 Log.e(TAG, "Error loading artists", e);
-                result = Collections.EMPTY_LIST;
+                result = null;
             }
 
             return result;
@@ -153,13 +153,15 @@ public class SpotifySearchActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(List<Artist> artists) {
-            if (artists.size() <= 0) {
+            if (artists == null) {
+                // just ignore results as they are either coming from interruption or malformed request
+                return;
+            } else if (artists.size() <= 0) {
                 Toast.makeText(SpotifySearchActivity.this,
                         getString(R.string.no_artists_found_message), Toast.LENGTH_SHORT).show();
-                setListItems(artists);
-            } else {
-                setListItems(artists);
             }
+
+            setListItems(artists);
         }
     }
 
