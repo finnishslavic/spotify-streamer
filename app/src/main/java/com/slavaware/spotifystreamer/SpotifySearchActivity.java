@@ -10,19 +10,19 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import com.slavaware.spotifystreamer.model.Artist;
 import com.slavaware.spotifystreamer.utils.ArtistAdapter;
 import com.slavaware.spotifystreamer.utils.SimpleTextWatcher;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.ArrayList;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
-import kaaes.spotify.webapi.android.models.Artist;
 import kaaes.spotify.webapi.android.models.ArtistsPager;
 import retrofit.RetrofitError;
 
@@ -31,6 +31,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
     public static final String TAG = SpotifySearchActivity.class.getSimpleName();
 
     public static final String SEARCH_TEXT_PARAM = "search_text";
+    public static final String SEARCH_RESULTS = "search_results";
     public static final String ARTIST_ID_KEY = "artist_id_key";
     public static final String ARTIST_NAME_KEY = "artist_name_key";
 
@@ -40,11 +41,15 @@ public class SpotifySearchActivity extends AppCompatActivity {
     @InjectView(R.id.search_input)
     EditText searchInput;
 
+    @InjectView(R.id.progress_bar)
+    ProgressBar progressBar;
+
     private SpotifyApi spotifyApi;
     private SpotifyService spotify;
     private SimpleTextWatcher searchTextWatcher;
     private ArtistAdapter artistsAdapter;
     private SearchArtistsTask searchArtistsTask;
+    private ArrayList<Artist> searchResults;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,7 +64,10 @@ public class SpotifySearchActivity extends AppCompatActivity {
             public void afterTextChanged(Editable s) {
                 super.afterTextChanged(s);
 
-                performSearch(s.toString());
+                if (s.length() >= 3) {
+                    // don't stop search before we got at least 3 characters
+                    performSearch(s.toString());
+                }
             }
         };
 
@@ -68,8 +76,8 @@ public class SpotifySearchActivity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Artist artist = (Artist) parent.getAdapter().getItem(position);
                 Intent showTopTracks = new Intent(SpotifySearchActivity.this, TopTracksActivity.class);
-                showTopTracks.putExtra(ARTIST_ID_KEY, artist.id);
-                showTopTracks.putExtra(ARTIST_NAME_KEY, artist.name);
+                showTopTracks.putExtra(ARTIST_ID_KEY, artist.getId());
+                showTopTracks.putExtra(ARTIST_NAME_KEY, artist.getName());
 
                 startActivity(showTopTracks);
             }
@@ -77,7 +85,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
 
         searchInput.addTextChangedListener(searchTextWatcher);
         artistsAdapter = new ArtistAdapter(this);
-        artistsAdapter.setArtists(Collections.EMPTY_LIST);
+        artistsAdapter.setArtists(new ArrayList<Artist>(0));
         listView.setAdapter(artistsAdapter);
 
         // Init other components
@@ -96,6 +104,8 @@ public class SpotifySearchActivity extends AppCompatActivity {
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putString(SEARCH_TEXT_PARAM, searchInput.getText().toString());
+
+        outState.putParcelableArrayList(SEARCH_RESULTS, searchResults);
     }
 
     @Override
@@ -105,12 +115,13 @@ public class SpotifySearchActivity extends AppCompatActivity {
         String savedText = savedInstanceState.getString(SEARCH_TEXT_PARAM);
         searchInput.setText(savedText);
         searchInput.setSelection(savedText.length());
-        performSearch(savedText);
+
+        setListItems(savedInstanceState.<Artist>getParcelableArrayList(SEARCH_RESULTS));
     }
 
     private void performSearch(String searchText) {
         if (searchText == null || searchText.length() <= 0) {
-            setListItems(Collections.EMPTY_LIST);
+            setListItems(new ArrayList<Artist>(0));
         }
 
         stopBackgroundSearch();
@@ -125,24 +136,35 @@ public class SpotifySearchActivity extends AppCompatActivity {
         }
     }
 
-    private void setListItems(List<Artist> artists) {
+    private void setListItems(ArrayList<Artist> artists) {
+        searchResults = artists;
         artistsAdapter.setArtists(artists);
         artistsAdapter.notifyDataSetChanged();
     }
 
-    public class SearchArtistsTask extends AsyncTask<String, Void, List<Artist>> {
+    public class SearchArtistsTask extends AsyncTask<String, Void, ArrayList<Artist>> {
 
         @Override
-        protected List<Artist> doInBackground(String... params) {
+        protected void onPreExecute() {
+            super.onPreExecute();
+            progressBar.setVisibility(View.VISIBLE);
+        }
+
+        @Override
+        protected ArrayList<Artist> doInBackground(String... params) {
             if (params == null || params.length <= 0) {
                 throw new IllegalArgumentException("Search parameters must be provided");
             }
 
             String searchArtistText = params[0];
-            List<Artist> result;
+            ArrayList<Artist> result;
             try {
                 ArtistsPager pager = spotify.searchArtists(searchArtistText);
-                result = pager.artists.items;
+                result = new ArrayList<>(pager.artists.items.size());
+                for (kaaes.spotify.webapi.android.models.Artist artist:pager.artists.items) {
+                    result.add(Artist.fromSpotifyArtist(artist));
+                }
+
             } catch (RetrofitError e) {
                 Log.e(TAG, "Error loading artists", e);
                 result = null;
@@ -152,7 +174,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
         }
 
         @Override
-        protected void onPostExecute(List<Artist> artists) {
+        protected void onPostExecute(ArrayList<Artist> artists) {
             if (artists == null) {
                 // just ignore results as they are either coming from interruption or malformed request
                 return;
@@ -162,6 +184,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
             }
 
             setListItems(artists);
+            progressBar.setVisibility(View.GONE);
         }
     }
 

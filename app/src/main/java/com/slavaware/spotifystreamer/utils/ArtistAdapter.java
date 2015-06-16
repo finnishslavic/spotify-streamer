@@ -9,14 +9,13 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.slavaware.spotifystreamer.R;
+import com.slavaware.spotifystreamer.model.Artist;
 import com.squareup.picasso.Picasso;
 
 import java.util.List;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
-import kaaes.spotify.webapi.android.models.Artist;
-import kaaes.spotify.webapi.android.models.Image;
 
 public class ArtistAdapter extends BaseAdapter {
 
@@ -68,12 +67,10 @@ public class ArtistAdapter extends BaseAdapter {
         }
 
         Artist artist = (Artist) getItem(position);
-        view.artistTextView.setText(artist.name);
+        view.artistTextView.setText(artist.getName());
 
-        final List<Image> images = artist.images;
-        if (images != null && images.size() > 0) {
-            Image artistImage = images.get(0);
-            picasso.load(artistImage.url)
+        if (!Strings.isNullOrEmpty(artist.getPhotoUrl())) {
+            picasso.load(artist.getPhotoUrl())
                     .fit()
                     .centerCrop()
                     .into(view.artistImageView);

@@ -10,22 +10,24 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import com.slavaware.spotifystreamer.model.Track;
 import com.slavaware.spotifystreamer.utils.TracksAdapter;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
-import kaaes.spotify.webapi.android.models.Track;
 import kaaes.spotify.webapi.android.models.Tracks;
 import retrofit.RetrofitError;
 
 public class TopTracksActivity extends AppCompatActivity {
+
+    public static final String SEARCH_RESULTS = "search_results";
 
     public static final String TAG = TopTracksActivity.class.getSimpleName();
 
@@ -37,6 +39,10 @@ public class TopTracksActivity extends AppCompatActivity {
     private TracksAdapter tracksAdapter;
     private TopTracksAsyncTask topTracksAsyncTask;
 
+    private ArrayList<Track> searchResults;
+    private String artistId;
+    private String artistName;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -44,11 +50,9 @@ public class TopTracksActivity extends AppCompatActivity {
 
         ButterKnife.inject(this);
 
-        // Get params
-        final String artistId = getIntent().getStringExtra(SpotifySearchActivity.ARTIST_ID_KEY);
-        if (artistId == null || artistId.isEmpty()) {
-            throw new IllegalArgumentException("Artist must be provided");
-        }
+        // Init other components
+        spotifyApi = new SpotifyApi();
+        spotify = spotifyApi.getService();
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -63,17 +67,11 @@ public class TopTracksActivity extends AppCompatActivity {
         tracksAdapter.setTracks(Collections.EMPTY_LIST);
         listView.setAdapter(tracksAdapter);
 
-        ActionBar actionBar = getSupportActionBar();
-        actionBar.setTitle(R.string.top_tracks_activity_title);
-        final String artistName = getIntent().getStringExtra(SpotifySearchActivity.ARTIST_NAME_KEY);
-        actionBar.setSubtitle(artistName);
-        actionBar.setDisplayHomeAsUpEnabled(true);
-
-        // Init other components
-        spotifyApi = new SpotifyApi();
-        spotify = spotifyApi.getService();
-
-        performTopTracksSearch(artistId);
+        if (savedInstanceState != null) {
+            initView(savedInstanceState);
+        } else {
+            initView(getIntent().getExtras());
+        }
     }
 
     @Override
@@ -82,9 +80,39 @@ public class TopTracksActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        outState.putString(SpotifySearchActivity.ARTIST_ID_KEY, artistId);
+        outState.putString(SpotifySearchActivity.ARTIST_NAME_KEY, artistName);
+        outState.putParcelableArrayList(SpotifySearchActivity.SEARCH_RESULTS, searchResults);
+    }
+
+    private void initView(Bundle data) {
+        // Get params
+        artistId = data.getString(SpotifySearchActivity.ARTIST_ID_KEY);
+        if (artistId == null || artistId.isEmpty()) {
+            throw new IllegalArgumentException("Artist must be provided");
+        }
+
+        ActionBar actionBar = getSupportActionBar();
+        actionBar.setTitle(R.string.top_tracks_activity_title);
+        artistName = data.getString(SpotifySearchActivity.ARTIST_NAME_KEY);
+        actionBar.setSubtitle(artistName);
+        actionBar.setDisplayHomeAsUpEnabled(true);
+
+        searchResults = data.<Track>getParcelableArrayList(SEARCH_RESULTS);
+        if (searchResults != null) {
+            setListItems(searchResults);
+        } else {
+            performTopTracksSearch(artistId);
+        }
+    }
+
     private void performTopTracksSearch(String searchText) {
         if (searchText == null || searchText.length() <= 0) {
-            setListItems(Collections.EMPTY_LIST);
+            setListItems(new ArrayList<Track>(0));
         }
 
         stopBackgroundSearch();
@@ -99,26 +127,30 @@ public class TopTracksActivity extends AppCompatActivity {
         }
     }
 
-    private void setListItems(List<Track> tracks) {
+    private void setListItems(ArrayList<Track> tracks) {
+        searchResults = tracks;
         tracksAdapter.setTracks(tracks);
         tracksAdapter.notifyDataSetChanged();
     }
 
-    public class TopTracksAsyncTask extends AsyncTask<String, Void, List<Track>> {
+    public class TopTracksAsyncTask extends AsyncTask<String, Void, ArrayList<Track>> {
 
         @Override
-        protected List<Track> doInBackground(String... params) {
+        protected ArrayList<Track> doInBackground(String... params) {
             if (params == null || params.length <= 0) {
                 throw new IllegalArgumentException("Search parameters must be provided");
             }
 
             String searchArtistText = params[0];
-            List<Track> result;
+            ArrayList<Track> result;
             try {
                 Map<String, Object> queryParams = new HashMap<>();
                 queryParams.put("country", "US");
                 Tracks tracks = spotify.getArtistTopTrack(searchArtistText, queryParams);
-                result = tracks.tracks;
+                result = new ArrayList<>(tracks.tracks.size());
+                for (kaaes.spotify.webapi.android.models.Track track:tracks.tracks) {
+                    result.add(Track.fromSpotifyTrack(track));
+                }
             } catch (RetrofitError e) {
                 Log.e(TAG, "Error loading top tracks", e);
                 result = null;
@@ -128,7 +160,7 @@ public class TopTracksActivity extends AppCompatActivity {
         }
 
         @Override
-        protected void onPostExecute(List<Track> tracks) {
+        protected void onPostExecute(ArrayList<Track> tracks) {
             if (tracks == null) {
                 // most likely was interrupted or malformed request
                 return;
