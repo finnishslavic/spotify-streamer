@@ -8,4 +8,5 @@
     <string name="not_implemented_yet_message">Not implemented yet</string>
     <string name="no_tracks_found_message">No Tracks Found</string>
     <string name="top_tracks_activity_title">Top 10 Tracks</string>
+    <string name="search_hint">Type artist name</string>
 </resources>

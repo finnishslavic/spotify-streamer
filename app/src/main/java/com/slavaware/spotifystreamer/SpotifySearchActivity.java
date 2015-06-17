@@ -4,18 +4,16 @@ import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.text.Editable;
+import android.support.v7.widget.SearchView;
 import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
-import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.slavaware.spotifystreamer.model.Artist;
 import com.slavaware.spotifystreamer.utils.ArtistAdapter;
-import com.slavaware.spotifystreamer.utils.SimpleTextWatcher;
 
 import java.util.ArrayList;
 
@@ -39,14 +37,13 @@ public class SpotifySearchActivity extends AppCompatActivity {
     ListView listView;
 
     @InjectView(R.id.search_input)
-    EditText searchInput;
+    SearchView searchInput;
 
     @InjectView(R.id.progress_bar)
     ProgressBar progressBar;
 
     private SpotifyApi spotifyApi;
     private SpotifyService spotify;
-    private SimpleTextWatcher searchTextWatcher;
     private ArtistAdapter artistsAdapter;
     private SearchArtistsTask searchArtistsTask;
     private ArrayList<Artist> searchResults;
@@ -57,19 +54,6 @@ public class SpotifySearchActivity extends AppCompatActivity {
         setContentView(R.layout.activity_spotify);
 
         ButterKnife.inject(this);
-
-        // Init views
-        searchTextWatcher = new SimpleTextWatcher() {
-            @Override
-            public void afterTextChanged(Editable s) {
-                super.afterTextChanged(s);
-
-                if (s.length() >= 3) {
-                    // don't stop search before we got at least 3 characters
-                    performSearch(s.toString());
-                }
-            }
-        };
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -83,7 +67,25 @@ public class SpotifySearchActivity extends AppCompatActivity {
             }
         });
 
-        searchInput.addTextChangedListener(searchTextWatcher);
+        searchInput.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                performSearch(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                if (newText != null && newText.length() >= 3) {
+                    performSearch(newText);
+                } else {
+                    setListItems(new ArrayList<Artist>(0));
+                }
+
+                return true;
+            }
+        });
+
         artistsAdapter = new ArtistAdapter(this);
         artistsAdapter.setArtists(new ArrayList<Artist>(0));
         listView.setAdapter(artistsAdapter);
@@ -95,7 +97,6 @@ public class SpotifySearchActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        searchInput.removeTextChangedListener(searchTextWatcher);
         stopBackgroundSearch();
         super.onDestroy();
     }
@@ -103,7 +104,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putString(SEARCH_TEXT_PARAM, searchInput.getText().toString());
+        outState.putString(SEARCH_TEXT_PARAM, searchInput.getQuery().toString());
 
         outState.putParcelableArrayList(SEARCH_RESULTS, searchResults);
     }
@@ -113,8 +114,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
         super.onRestoreInstanceState(savedInstanceState);
 
         String savedText = savedInstanceState.getString(SEARCH_TEXT_PARAM);
-        searchInput.setText(savedText);
-        searchInput.setSelection(savedText.length());
+        searchInput.setQuery(savedText, false);
 
         setListItems(savedInstanceState.<Artist>getParcelableArrayList(SEARCH_RESULTS));
     }
