@@ -18,6 +18,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    packagingOptions {
+        exclude 'META-INF/services/javax.annotation.processing.Processor'
+    }
 }
 
 repositories {
@@ -32,6 +35,10 @@ dependencies {
     // URL: https://github.com/kaaes/spotify-web-api-android
     // License: ?
     compile(name:'spotify-web-api-android-0.1.0', ext:'aar')
+
+    // URL: https://realm.io
+    // License: Apache License, Version 2.0
+    compile(name:'realm-0.81.1', ext:'jar')
 
     // URL: http://jakewharton.github.io/butterknife/
     // License: Apache License, Version 2.0

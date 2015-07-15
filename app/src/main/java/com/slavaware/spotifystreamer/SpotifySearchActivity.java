@@ -13,12 +13,16 @@ import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.slavaware.spotifystreamer.model.Artist;
+import com.slavaware.spotifystreamer.model.ModelConverter;
 import com.slavaware.spotifystreamer.utils.ArtistAdapter;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
+import io.realm.Realm;
+import io.realm.RealmResults;
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
 import kaaes.spotify.webapi.android.models.ArtistsPager;
@@ -46,7 +50,8 @@ public class SpotifySearchActivity extends AppCompatActivity {
     private SpotifyService spotify;
     private ArtistAdapter artistsAdapter;
     private SearchArtistsTask searchArtistsTask;
-    private ArrayList<Artist> searchResults;
+    private List<Artist> searchResults;
+    private Realm realm;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,6 +98,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
         // Init other components
         spotifyApi = new SpotifyApi();
         spotify = spotifyApi.getService();
+        realm = realm.getInstance(this);
     }
 
     @Override
@@ -106,7 +112,11 @@ public class SpotifySearchActivity extends AppCompatActivity {
         super.onSaveInstanceState(outState);
         outState.putString(SEARCH_TEXT_PARAM, searchInput.getQuery().toString());
 
-        outState.putParcelableArrayList(SEARCH_RESULTS, searchResults);
+        realm.beginTransaction();
+        if (searchResults != null && searchResults.size() > 0) {
+            realm.copyToRealmOrUpdate(searchResults);
+        }
+        realm.commitTransaction();
     }
 
     @Override
@@ -116,7 +126,11 @@ public class SpotifySearchActivity extends AppCompatActivity {
         String savedText = savedInstanceState.getString(SEARCH_TEXT_PARAM);
         searchInput.setQuery(savedText, false);
 
-        setListItems(savedInstanceState.<Artist>getParcelableArrayList(SEARCH_RESULTS));
+        // Realm db is sooo fast!
+        RealmResults<Artist> results = realm.allObjects(Artist.class);
+        if (results.size() > 0) {
+            setListItems(results.subList(0, results.size() - 1));
+        }
     }
 
     private void performSearch(String searchText) {
@@ -136,7 +150,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
         }
     }
 
-    private void setListItems(ArrayList<Artist> artists) {
+    private void setListItems(List<Artist> artists) {
         searchResults = artists;
         artistsAdapter.setArtists(artists);
         artistsAdapter.notifyDataSetChanged();
@@ -162,7 +176,7 @@ public class SpotifySearchActivity extends AppCompatActivity {
                 ArtistsPager pager = spotify.searchArtists(searchArtistText);
                 result = new ArrayList<>(pager.artists.items.size());
                 for (kaaes.spotify.webapi.android.models.Artist artist:pager.artists.items) {
-                    result.add(Artist.fromSpotifyArtist(artist));
+                    result.add(ModelConverter.fromSpotifyArtist(artist));
                 }
 
             } catch (RetrofitError e) {
