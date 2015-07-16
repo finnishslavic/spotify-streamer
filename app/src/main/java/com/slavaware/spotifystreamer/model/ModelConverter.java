@@ -2,6 +2,7 @@ package com.slavaware.spotifystreamer.model;
 
 import java.util.List;
 
+import kaaes.spotify.webapi.android.models.ArtistSimple;
 import kaaes.spotify.webapi.android.models.Image;
 
 public class ModelConverter {
@@ -24,6 +25,15 @@ public class ModelConverter {
         track.setId(spotifyTrack.id);
         track.setName(spotifyTrack.name);
         track.setAlbumName(spotifyTrack.album.name);
+        track.setPreviewUrl(spotifyTrack.preview_url);
+        track.setDuration(spotifyTrack.duration_ms);
+
+
+        final List<ArtistSimple> artists = spotifyTrack.artists;
+        if (artists != null && artists.size() > 0) {
+            ArtistSimple artist = artists.get(0);
+            track.setArtistName(artist.name);
+        }
 
         final List<Image> images = spotifyTrack.album.images;
         if (images != null && images.size() > 0) {

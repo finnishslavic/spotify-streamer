@@ -10,6 +10,9 @@ public class Track extends RealmObject {
     private String name;
     private String albumName;
     private String photoUrl;
+    private String artistName;
+    private long duration;
+    private String previewUrl;
 
     public String getName() {
         return name;
@@ -27,6 +30,14 @@ public class Track extends RealmObject {
         return albumName;
     }
 
+    public String getArtistName() {
+        return artistName;
+    }
+
+    public void setArtistName(String artistName) {
+        this.artistName = artistName;
+    }
+
     public void setId(String id) {
         this.id = id;
     }
@@ -41,5 +52,21 @@ public class Track extends RealmObject {
 
     public void setPhotoUrl(String photoUrl) {
         this.photoUrl = photoUrl;
+    }
+
+    public void setDuration(long duration) {
+        this.duration = duration;
+    }
+
+    public long getDuration() {
+        return duration;
+    }
+
+    public void setPreviewUrl(String previewUrl) {
+        this.previewUrl = previewUrl;
+    }
+
+    public String getPreviewUrl() {
+        return previewUrl;
     }
 }
