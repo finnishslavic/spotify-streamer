@@ -59,7 +59,7 @@ public class SpotifySearchFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View rootView = inflater.inflate(R.layout.spotify_search_fragment, container, false);
+        View rootView = inflater.inflate(R.layout.fragment_spotify_search, container, false);
         ButterKnife.inject(this, rootView);
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {

@@ -1,6 +1,5 @@
 package com.slavaware.spotifystreamer.fragments;
 
-import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -14,7 +13,6 @@ import android.widget.ListView;
 import android.widget.Toast;
 
 import com.slavaware.spotifystreamer.R;
-import com.slavaware.spotifystreamer.SpotifyPlayerActivity;
 import com.slavaware.spotifystreamer.TopTracksActivity;
 import com.slavaware.spotifystreamer.model.ModelConverter;
 import com.slavaware.spotifystreamer.model.Track;
@@ -59,7 +57,7 @@ public class TopTracksFragment extends Fragment {
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        View rootView = inflater.inflate(R.layout.top_tracks_fragment, container, false);
+        View rootView = inflater.inflate(R.layout.fragment_top_tracks, container, false);
         ButterKnife.inject(this, rootView);
 
         // Init other components
@@ -70,9 +68,7 @@ public class TopTracksFragment extends Fragment {
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent playTrack = new Intent(getActivity(), SpotifyPlayerActivity.class);
-                playTrack.putExtra(EXTRA_TRACK_POSITION, position);
-                startActivity(playTrack);
+                ((Callback) getActivity()).onItemSelected(position);
             }
         });
 
@@ -205,6 +201,13 @@ public class TopTracksFragment extends Fragment {
             realm.copyToRealm(tracks);
             realm.commitTransaction();
         }
+    }
+
+
+    public interface Callback {
+
+        void onItemSelected(int position);
+
     }
 
 }
