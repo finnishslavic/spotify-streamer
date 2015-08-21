@@ -1,9 +1,13 @@
 package com.slavaware.spotifystreamer.model;
 
+import java.util.concurrent.TimeUnit;
+
 import io.realm.RealmObject;
 import io.realm.annotations.PrimaryKey;
 
 public class Track extends RealmObject {
+
+    public static final long PREVIEW_DURATION_MS = TimeUnit.SECONDS.toMillis(30);
 
     @PrimaryKey
     private String id;
@@ -59,7 +63,7 @@ public class Track extends RealmObject {
     }
 
     public long getDuration() {
-        return duration;
+         return duration;
     }
 
     public void setPreviewUrl(String previewUrl) {

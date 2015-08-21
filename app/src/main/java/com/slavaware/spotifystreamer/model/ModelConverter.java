@@ -28,7 +28,6 @@ public class ModelConverter {
         track.setPreviewUrl(spotifyTrack.preview_url);
         track.setDuration(spotifyTrack.duration_ms);
 
-
         final List<ArtistSimple> artists = spotifyTrack.artists;
         if (artists != null && artists.size() > 0) {
             ArtistSimple artist = artists.get(0);

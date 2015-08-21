@@ -1,205 +1,64 @@
 package com.slavaware.spotifystreamer;
 
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.SearchView;
-import android.util.Log;
-import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ListView;
-import android.widget.ProgressBar;
-import android.widget.Toast;
 
-import com.slavaware.spotifystreamer.model.Artist;
-import com.slavaware.spotifystreamer.model.ModelConverter;
-import com.slavaware.spotifystreamer.utils.ArtistAdapter;
+import com.slavaware.spotifystreamer.fragments.SpotifySearchFragment;
+import com.slavaware.spotifystreamer.fragments.SpotifySearchFragment.Callback;
+import com.slavaware.spotifystreamer.fragments.TopTracksFragment;
 
-import java.util.ArrayList;
-import java.util.List;
+public class SpotifySearchActivity extends AppCompatActivity implements Callback {
 
-import butterknife.ButterKnife;
-import butterknife.InjectView;
-import io.realm.Realm;
-import io.realm.RealmResults;
-import kaaes.spotify.webapi.android.SpotifyApi;
-import kaaes.spotify.webapi.android.SpotifyService;
-import kaaes.spotify.webapi.android.models.ArtistsPager;
-import retrofit.RetrofitError;
+    private final String LOG_TAG = SpotifySearchActivity.class.getSimpleName();
 
-public class SpotifySearchActivity extends AppCompatActivity {
+    private static final String TOP_TRACK_TAG = "TOP_TRACK_FRAGMENT";
 
-    public static final String TAG = SpotifySearchActivity.class.getSimpleName();
-
-    public static final String SEARCH_TEXT_PARAM = "search_text";
-    public static final String SEARCH_RESULTS = "search_results";
-    public static final String ARTIST_ID_KEY = "artist_id_key";
-    public static final String ARTIST_NAME_KEY = "artist_name_key";
-
-    @InjectView(R.id.list_view)
-    ListView listView;
-
-    @InjectView(R.id.search_input)
-    SearchView searchInput;
-
-    @InjectView(R.id.progress_bar)
-    ProgressBar progressBar;
-
-    private SpotifyApi spotifyApi;
-    private SpotifyService spotify;
-    private ArtistAdapter artistsAdapter;
-    private SearchArtistsTask searchArtistsTask;
-    private List<Artist> searchResults;
-    private Realm realm;
+    private boolean twoPane;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_spotify);
-
-        ButterKnife.inject(this);
-
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Artist artist = (Artist) parent.getAdapter().getItem(position);
-                Intent showTopTracks = new Intent(SpotifySearchActivity.this, TopTracksActivity.class);
-                showTopTracks.putExtra(ARTIST_ID_KEY, artist.getId());
-                showTopTracks.putExtra(ARTIST_NAME_KEY, artist.getName());
-
-                startActivity(showTopTracks);
+        if (findViewById(R.id.top_tracks_container) != null) {
+            twoPane = true;
+            if (savedInstanceState == null) {
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.top_tracks_container, new TopTracksFragment(), TOP_TRACK_TAG)
+                        .commit();
             }
-        });
+        } else {
+            twoPane = false;
+            getSupportActionBar().setElevation(0f);
+        }
 
-        searchInput.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-            @Override
-            public boolean onQueryTextSubmit(String query) {
-                performSearch(query);
-                return true;
-            }
-
-            @Override
-            public boolean onQueryTextChange(String newText) {
-                if (newText != null && newText.length() >= 3) {
-                    performSearch(newText);
-                } else {
-                    setListItems(new ArrayList<Artist>(0));
-                }
-
-                return true;
-            }
-        });
-
-        artistsAdapter = new ArtistAdapter(this);
-        artistsAdapter.setArtists(new ArrayList<Artist>(0));
-        listView.setAdapter(artistsAdapter);
-
-        // Init other components
-        spotifyApi = new SpotifyApi();
-        spotify = spotifyApi.getService();
-        realm = realm.getInstance(this);
+//        SpotifySearchFragment forecastFragment =  ((SpotifySearchFragment) getSupportFragmentManager()
+//                .findFragmentById(R.id.fragment_search));
     }
 
     @Override
-    protected void onDestroy() {
-        stopBackgroundSearch();
-        super.onDestroy();
-    }
+    public void onItemSelected(String artistId, String artistName) {
+        if (twoPane) {
+            // In two-pane mode, show the detail view in this activity by
+            // adding or replacing the detail fragment using a
+            // fragment transaction.
+            Bundle args = new Bundle();
+            args.putString(SpotifySearchFragment.ARTIST_ID_KEY, artistId);
+            args.putString(SpotifySearchFragment.ARTIST_NAME_KEY, artistName);
 
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putString(SEARCH_TEXT_PARAM, searchInput.getQuery().toString());
+            TopTracksFragment fragment = new TopTracksFragment();
+            fragment.setArguments(args);
 
-        realm.beginTransaction();
-        if (searchResults != null && searchResults.size() > 0) {
-            realm.copyToRealmOrUpdate(searchResults);
-        }
-        realm.commitTransaction();
-    }
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.top_tracks_container, fragment, TOP_TRACK_TAG)
+                    .commit();
+        } else {
+            Intent showTopTracks = new Intent(this, TopTracksActivity.class);
+            showTopTracks.putExtra(SpotifySearchFragment.ARTIST_ID_KEY, artistId);
+            showTopTracks.putExtra(SpotifySearchFragment.ARTIST_NAME_KEY, artistName);
 
-    @Override
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        super.onRestoreInstanceState(savedInstanceState);
-
-        String savedText = savedInstanceState.getString(SEARCH_TEXT_PARAM);
-        searchInput.setQuery(savedText, false);
-
-        // Realm db is sooo fast!
-        RealmResults<Artist> results = realm.allObjects(Artist.class);
-        if (results.size() > 0) {
-            setListItems(results.subList(0, results.size() - 1));
+            startActivity(showTopTracks);
         }
     }
-
-    private void performSearch(String searchText) {
-        if (searchText == null || searchText.length() <= 0) {
-            setListItems(new ArrayList<Artist>(0));
-        }
-
-        stopBackgroundSearch();
-        searchArtistsTask = new SearchArtistsTask();
-        searchArtistsTask.execute(searchText);
-    }
-
-    private void stopBackgroundSearch() {
-        if (searchArtistsTask != null && !searchArtistsTask.isCancelled()) {
-            searchArtistsTask.cancel(true);
-            searchArtistsTask = null;
-        }
-    }
-
-    private void setListItems(List<Artist> artists) {
-        searchResults = artists;
-        artistsAdapter.setArtists(artists);
-        artistsAdapter.notifyDataSetChanged();
-    }
-
-    public class SearchArtistsTask extends AsyncTask<String, Void, ArrayList<Artist>> {
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            progressBar.setVisibility(View.VISIBLE);
-        }
-
-        @Override
-        protected ArrayList<Artist> doInBackground(String... params) {
-            if (params == null || params.length <= 0) {
-                throw new IllegalArgumentException("Search parameters must be provided");
-            }
-
-            String searchArtistText = params[0];
-            ArrayList<Artist> result;
-            try {
-                ArtistsPager pager = spotify.searchArtists(searchArtistText);
-                result = new ArrayList<>(pager.artists.items.size());
-                for (kaaes.spotify.webapi.android.models.Artist artist:pager.artists.items) {
-                    result.add(ModelConverter.fromSpotifyArtist(artist));
-                }
-
-            } catch (RetrofitError e) {
-                Log.e(TAG, "Error loading artists", e);
-                result = null;
-            }
-
-            return result;
-        }
-
-        @Override
-        protected void onPostExecute(ArrayList<Artist> artists) {
-            if (artists == null) {
-                // just ignore results as they are either coming from interruption or malformed request
-                return;
-            } else if (artists.size() <= 0) {
-                Toast.makeText(SpotifySearchActivity.this,
-                        getString(R.string.no_artists_found_message), Toast.LENGTH_SHORT).show();
-            }
-
-            setListItems(artists);
-            progressBar.setVisibility(View.GONE);
-        }
-    }
-
 }

@@ -14,6 +14,7 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.slavaware.spotifystreamer.fragments.TopTracksFragment;
 import com.slavaware.spotifystreamer.model.Track;
 import com.squareup.picasso.Picasso;
 
@@ -61,6 +62,7 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
     private int currentTrackIndex;
     private boolean isPlayerPaused;
     private AudioManager audioManager;
+    private Handler handler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,21 +71,25 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
 
         ButterKnife.inject(this);
 
+        // init members
+        handler = new Handler();
         realm = Realm.getInstance(this);
-        final int trackId;
-        if (savedInstanceState == null) {
-            trackId = getIntent().getIntExtra(TopTracksActivity.EXTRA_TRACK_ID, 0);
-        } else {
-            trackId = savedInstanceState.getInt(TopTracksActivity.EXTRA_TRACK_ID);
-        }
-
-        tracks = realm.allObjects(Track.class);
-        currentTrackIndex = trackId;
-
         mediaPlayer = new MediaPlayer();
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         audioManager.requestAudioFocus(this, AudioManager.STREAM_MUSIC,
                 AudioManager.AUDIOFOCUS_GAIN);
+
+        // get extras
+        final int trackPosition;
+        if (savedInstanceState == null) {
+            trackPosition = getIntent().getIntExtra(TopTracksFragment.EXTRA_TRACK_POSITION, 0);
+        } else {
+            trackPosition = savedInstanceState.getInt(TopTracksFragment.EXTRA_TRACK_POSITION);
+        }
+
+        // load data
+        tracks = realm.allObjects(Track.class);
+        currentTrackIndex = trackPosition;
 
         initView(tracks.get(currentTrackIndex));
     }
@@ -113,7 +119,7 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
         if (mediaPlayer != null && mediaPlayer.isPlaying()) {
             pausePlayback();
         } else {
-            startPlayback();
+            prepareOrContinuePlayback();
         }
     }
 
@@ -130,11 +136,13 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
     }
 
     private void initView(final Track currentTrack) {
-        currentPlaybackTimeTextView.setText("0:00");
+        currentPlaybackTimeTextView.setText(formatTime(0));
         trackDurationTextView.setText(formatTime(currentTrack.getDuration()));
         artistTextView.setText(currentTrack.getArtistName());
         albumTextView.setText(currentTrack.getAlbumName());
         trackTitleTextView.setText(currentTrack.getName());
+        seekBar.setEnabled(false);
+
         Picasso.with(this)
                 .load(currentTrack.getPhotoUrl())
                 .fit()
@@ -142,9 +150,9 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
                 .into(albumCoverImageView);
     }
 
-    private void startPlayback() {
+    private void prepareOrContinuePlayback() {
         if (isPlayerPaused) {
-            mediaPlayer.start();
+            startPlayback();
         } else {
             final Track track = tracks.get(currentTrackIndex);
             try {
@@ -158,12 +166,52 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
                 Toast.makeText(this, "Playback error", Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            seekBar.setMax((int) track.getDuration());
         }
 
         playPauseButton.setImageResource(android.R.drawable.ic_media_pause);
-        seekBar.setProgress(mediaPlayer.getCurrentPosition());
+    }
+
+    private void startPlayback() {
+        mediaPlayer.start();
+        isPlayerPaused = false;
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
+                    int currentPosition = mediaPlayer.getCurrentPosition();
+                    seekBar.setProgress(currentPosition);
+                    currentPlaybackTimeTextView.setText(formatTime(currentPosition));
+                    handler.postDelayed(this, 1000);
+                }
+            }
+        });
+
+        // This is a little creepy
+        final int previewDuration = mediaPlayer.getDuration();
+        trackDurationTextView.setText(formatTime(previewDuration));
+
+        seekBar.setMax(previewDuration);
+        seekBar.setEnabled(true);
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                Log.d(TAG, "onProgressChanged: " + progress + "; fromUser=" + fromUser);
+                if (fromUser) {
+                    mediaPlayer.seekTo(seekBar.getProgress());
+                    currentPlaybackTimeTextView.setText(formatTime(seekBar.getProgress()));
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                Log.d(TAG, "onStopTrackingTouch: " + seekBar.getProgress());
+            }
+        });
     }
 
     private void stopPlayback() {
@@ -176,6 +224,7 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
         }
 
         playPauseButton.setImageResource(android.R.drawable.ic_media_play);
+        seekBar.setEnabled(false);
     }
 
     private void pausePlayback() {
@@ -187,44 +236,31 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
         playPauseButton.setImageResource(android.R.drawable.ic_media_play);
     }
 
-    private Handler handler = new Handler();
-
     @Override
     public void onPrepared(MediaPlayer mp) {
-        mp.start();
-        // TODO: start following progress updates
-
-        isPlayerPaused = false;
-
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if(mediaPlayer != null && mediaPlayer.isPlaying()){
-                    int currentPosition = mediaPlayer.getCurrentPosition();
-                    seekBar.setProgress(currentPosition);
-                    currentPlaybackTimeTextView.setText(formatTime(currentPosition));
-                    handler.postDelayed(this, 1000);
-                }
-            }
-        });
+        startPlayback();
     }
 
     @Override
     public void onAudioFocusChange(int focusChange) {
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_GAIN:
+                Log.d(TAG, "onAudioFocusChange: gain");
                 // resume playback
                 if (mediaPlayer.isPlaying()) {
                     mediaPlayer.setVolume(1.0f, 1.0f);
                 }
+
                 break;
 
             case AudioManager.AUDIOFOCUS_LOSS:
+                Log.d(TAG, "onAudioFocusChange: loss");
                 // Lost focus for an unbounded amount of time: stop playback and release media player
                 stopPlayback();
                 break;
 
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                Log.d(TAG, "onAudioFocusChange: loss transient");
                 // Lost focus for a short time, but we have to stop
                 // playback. We don't release the media player because playback
                 // is likely to resume
@@ -232,13 +268,13 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
                 break;
 
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                Log.d(TAG, "onAudioFocusChange: loss transient can duck");
                 // Lost focus for a short time, but it's ok to keep playing
                 // at an attenuated level
                 if (mediaPlayer.isPlaying()) mediaPlayer.setVolume(0.1f, 0.1f);
                 break;
         }
     }
-
 
     public static String formatTime(long millis) {
         long seconds = TimeUnit.MILLISECONDS.toSeconds(millis);
@@ -248,7 +284,8 @@ public class SpotifyPlayerActivity extends AppCompatActivity implements MediaPla
         if (minutes < 1) {
             timeFormat.append("0:");
         } else {
-            timeFormat.append(minutes + ":");
+            timeFormat.append(minutes);
+            timeFormat.append(":");
         }
 
         seconds = seconds - (minutes * 60);
