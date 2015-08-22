@@ -27,6 +27,14 @@
                 android:value=".SpotifySearchActivity" />
         </activity>
         <activity android:name=".SpotifyPlayerActivity" />
+        <activity
+            android:name=".SettingsActivity"
+            android:label="@string/settings_activity_title"
+            android:parentActivityName=".SpotifySearchActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".SpotifySearchActivity" />
+        </activity>
     </application>
 
 </manifest>

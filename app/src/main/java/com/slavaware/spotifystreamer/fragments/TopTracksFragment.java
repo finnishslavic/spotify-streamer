@@ -2,6 +2,7 @@ package com.slavaware.spotifystreamer.fragments;
 
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.util.Log;
@@ -79,7 +80,7 @@ public class TopTracksFragment extends Fragment {
         if (savedInstanceState != null) {
             initView(savedInstanceState);
         } else {
-            initView(getActivity().getIntent().getExtras());
+            initView(getArguments());
         }
 
         return rootView;
@@ -169,7 +170,11 @@ public class TopTracksFragment extends Fragment {
             ArrayList<Track> result;
             try {
                 Map<String, Object> queryParams = new HashMap<>();
-                queryParams.put("country", "US");
+                String countryCode = PreferenceManager
+                        .getDefaultSharedPreferences(getActivity())
+                        .getString(getString(R.string.settings_country_key), "US");
+
+                queryParams.put("country", countryCode.toUpperCase());
                 Tracks tracks = spotify.getArtistTopTrack(searchArtistText, queryParams);
                 result = new ArrayList<>(tracks.tracks.size());
                 for (kaaes.spotify.webapi.android.models.Track track:tracks.tracks) {

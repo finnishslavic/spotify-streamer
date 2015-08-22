@@ -87,7 +87,7 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
         // get extras
         final int trackPosition;
         if (savedInstanceState == null) {
-            trackPosition = getActivity().getIntent().getIntExtra(TopTracksFragment.EXTRA_TRACK_POSITION, 0);
+            trackPosition = getArguments().getInt(TopTracksFragment.EXTRA_TRACK_POSITION, 0);
         } else {
             trackPosition = savedInstanceState.getInt(TopTracksFragment.EXTRA_TRACK_POSITION);
         }

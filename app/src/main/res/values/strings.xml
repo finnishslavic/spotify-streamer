@@ -9,4 +9,11 @@
     <string name="no_tracks_found_message">No Tracks Found</string>
     <string name="top_tracks_activity_title">Top 10 Tracks</string>
     <string name="search_hint">Type artist name</string>
+
+    <!-- Settings -->
+    <string name="settings_activity_title">Settings</string>
+    <string name="settings_country_title">Country</string>
+    <string name="settings_country_summary">Select your country</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_country_key">country_preference</string>
 </resources>

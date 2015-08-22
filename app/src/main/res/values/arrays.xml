@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="preference_country_options">
+        <item>United states</item>
+    </string-array>
+
+    <string-array name="preference_country_values">
+        <item>US</item>
+    </string-array>
+</resources>
