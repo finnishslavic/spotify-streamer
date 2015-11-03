@@ -18,6 +18,7 @@ import com.slavaware.spotifystreamer.R;
 import com.slavaware.spotifystreamer.model.Artist;
 import com.slavaware.spotifystreamer.model.ModelConverter;
 import com.slavaware.spotifystreamer.utils.ArtistAdapter;
+import com.slavaware.spotifystreamer.utils.ArtistSelectedCallback;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +67,7 @@ public class SpotifySearchFragment extends Fragment {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Artist artist = (Artist) parent.getAdapter().getItem(position);
-                ((Callback) getActivity()).onItemSelected(artist.getId(), artist.getName());
+                ((ArtistSelectedCallback) getActivity()).onItemSelected(artist.getId(), artist.getName());
             }
         });
 
@@ -174,7 +175,7 @@ public class SpotifySearchFragment extends Fragment {
             try {
                 ArtistsPager pager = spotify.searchArtists(searchArtistText);
                 result = new ArrayList<>(pager.artists.items.size());
-                for (kaaes.spotify.webapi.android.models.Artist artist:pager.artists.items) {
+                for (kaaes.spotify.webapi.android.models.Artist artist : pager.artists.items) {
                     result.add(ModelConverter.fromSpotifyArtist(artist));
                 }
 
@@ -199,12 +200,6 @@ public class SpotifySearchFragment extends Fragment {
             setListItems(artists);
             progressBar.setVisibility(View.GONE);
         }
-    }
-
-    public interface Callback {
-
-        void onItemSelected(String artistId, String artistName);
-
     }
 
 }

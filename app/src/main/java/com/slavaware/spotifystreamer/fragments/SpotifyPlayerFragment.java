@@ -32,9 +32,11 @@ import butterknife.OnClick;
 import io.realm.Realm;
 
 public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer.OnPreparedListener,
-        AudioManager.OnAudioFocusChangeListener  {
+        AudioManager.OnAudioFocusChangeListener {
 
     public static final String TAG = "SpotifyPlayerFragment";
+    public static final String EXTRA_IS_PAUSED = "extra_is_paused";
+    public static final String EXTRA_PAUSED_AT = "extra_paused_at";
 
     @InjectView(R.id.artist_text_view)
     TextView artistTextView;
@@ -66,6 +68,7 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
     private List<Track> tracks;
     private int currentTrackIndex;
     private boolean isPlayerPaused;
+    private int pausedAt;
     private AudioManager audioManager;
     private Handler handler;
 
@@ -85,20 +88,29 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
                 AudioManager.AUDIOFOCUS_GAIN);
 
         // get extras
-        final int trackPosition;
         if (savedInstanceState == null) {
-            trackPosition = getArguments().getInt(TopTracksFragment.EXTRA_TRACK_POSITION, 0);
+            currentTrackIndex = getArguments().getInt(TopTracksFragment.EXTRA_TRACK_ID, 0);
         } else {
-            trackPosition = savedInstanceState.getInt(TopTracksFragment.EXTRA_TRACK_POSITION);
+            pausedAt = savedInstanceState.getInt(EXTRA_PAUSED_AT, 0);
+            currentTrackIndex = savedInstanceState.getInt(TopTracksFragment.EXTRA_TRACK_ID);
         }
 
         // load data
         tracks = realm.allObjects(Track.class);
-        currentTrackIndex = trackPosition;
 
         initView(tracks.get(currentTrackIndex));
+        prepareOrContinuePlayback();
 
         return rootView;
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        pausePlayback();
+        outState.putInt(EXTRA_PAUSED_AT, pausedAt);
+        outState.putInt(TopTracksFragment.EXTRA_TRACK_ID, currentTrackIndex);
     }
 
     @Override
@@ -119,6 +131,7 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
         }
 
         initView(tracks.get(currentTrackIndex));
+        prepareOrContinuePlayback();
     }
 
     @OnClick(R.id.play_pause_button)
@@ -140,6 +153,7 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
         }
 
         initView(tracks.get(currentTrackIndex));
+        prepareOrContinuePlayback();
     }
 
     private void initView(final Track currentTrack) {
@@ -203,7 +217,6 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                Log.d(TAG, "onProgressChanged: " + progress + "; fromUser=" + fromUser);
                 if (fromUser) {
                     mediaPlayer.seekTo(seekBar.getProgress());
                     currentPlaybackTimeTextView.setText(formatTime(seekBar.getProgress()));
@@ -216,9 +229,12 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                Log.d(TAG, "onStopTrackingTouch: " + seekBar.getProgress());
             }
         });
+
+        if (pausedAt > 0) {
+            mediaPlayer.seekTo(pausedAt);
+        }
     }
 
     private void stopPlayback() {
@@ -228,6 +244,7 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
 
             seekBar.setProgress(0);
             isPlayerPaused = false;
+            pausedAt = 0;
         }
 
         playPauseButton.setImageResource(android.R.drawable.ic_media_play);
@@ -237,6 +254,7 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
     private void pausePlayback() {
         if (mediaPlayer != null && mediaPlayer.isPlaying()) {
             mediaPlayer.pause();
+            pausedAt = mediaPlayer.getCurrentPosition();
             isPlayerPaused = true;
         }
 
@@ -252,7 +270,6 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
     public void onAudioFocusChange(int focusChange) {
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_GAIN:
-                Log.d(TAG, "onAudioFocusChange: gain");
                 // resume playback
                 if (mediaPlayer.isPlaying()) {
                     mediaPlayer.setVolume(1.0f, 1.0f);
@@ -261,13 +278,11 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
                 break;
 
             case AudioManager.AUDIOFOCUS_LOSS:
-                Log.d(TAG, "onAudioFocusChange: loss");
                 // Lost focus for an unbounded amount of time: stop playback and release media player
                 stopPlayback();
                 break;
 
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-                Log.d(TAG, "onAudioFocusChange: loss transient");
                 // Lost focus for a short time, but we have to stop
                 // playback. We don't release the media player because playback
                 // is likely to resume
@@ -275,7 +290,6 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
                 break;
 
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                Log.d(TAG, "onAudioFocusChange: loss transient can duck");
                 // Lost focus for a short time, but it's ok to keep playing
                 // at an attenuated level
                 if (mediaPlayer.isPlaying()) mediaPlayer.setVolume(0.1f, 0.1f);

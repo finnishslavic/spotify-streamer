@@ -1,17 +1,23 @@
 package com.slavaware.spotifystreamer;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
+import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.slavaware.spotifystreamer.fragments.SpotifyPlayerFragment;
 import com.slavaware.spotifystreamer.fragments.SpotifySearchFragment;
-import com.slavaware.spotifystreamer.fragments.SpotifySearchFragment.Callback;
 import com.slavaware.spotifystreamer.fragments.TopTracksFragment;
+import com.slavaware.spotifystreamer.utils.ArtistSelectedCallback;
 import com.slavaware.spotifystreamer.utils.Strings;
+import com.slavaware.spotifystreamer.utils.TrackSelectedCallback;
 
-public class SpotifySearchActivity extends AppCompatActivity implements Callback {
+public class SpotifySearchActivity extends AppCompatActivity implements ArtistSelectedCallback,
+        TrackSelectedCallback {
 
     private final String LOG_TAG = SpotifySearchActivity.class.getSimpleName();
 
@@ -74,6 +80,29 @@ public class SpotifySearchActivity extends AppCompatActivity implements Callback
         }
     }
 
+
+    @Override
+    public void onItemSelected(int position) {
+        if (!twoPane) {
+            Intent playTrack = new Intent(this, SpotifyPlayerActivity.class);
+            playTrack.putExtra(TopTracksFragment.EXTRA_TRACK_ID, position);
+            startActivity(playTrack);
+        } else {
+            FragmentManager fm = getSupportFragmentManager();
+            SpotifyPlayerFragment spotifyPlayerDialog = new SpotifyPlayerFragment();
+            Bundle arguments = new Bundle();
+            arguments.putInt(TopTracksFragment.EXTRA_TRACK_ID, position);
+            spotifyPlayerDialog.setArguments(arguments);
+            spotifyPlayerDialog.show(fm, "fragment_spotify_dialog");
+        }
+    }
+
+    public static boolean isTablet(Context context) {
+        return (context.getResources().getConfiguration().screenLayout
+                & Configuration.SCREENLAYOUT_SIZE_MASK)
+                >= Configuration.SCREENLAYOUT_SIZE_LARGE;
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -96,4 +125,5 @@ public class SpotifySearchActivity extends AppCompatActivity implements Callback
 
         return super.onOptionsItemSelected(item);
     }
+
 }

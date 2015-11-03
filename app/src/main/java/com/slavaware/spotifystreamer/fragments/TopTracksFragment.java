@@ -17,6 +17,7 @@ import com.slavaware.spotifystreamer.R;
 import com.slavaware.spotifystreamer.TopTracksActivity;
 import com.slavaware.spotifystreamer.model.ModelConverter;
 import com.slavaware.spotifystreamer.model.Track;
+import com.slavaware.spotifystreamer.utils.TrackSelectedCallback;
 import com.slavaware.spotifystreamer.utils.TracksAdapter;
 
 import java.util.ArrayList;
@@ -37,7 +38,7 @@ import retrofit.RetrofitError;
 public class TopTracksFragment extends Fragment {
 
     public static final String SEARCH_RESULTS = "search_results";
-    public static final String EXTRA_TRACK_POSITION = "track_id";
+    public static final String EXTRA_TRACK_ID = "track_id";
 
     public static final String TAG = TopTracksActivity.class.getSimpleName();
 
@@ -69,7 +70,7 @@ public class TopTracksFragment extends Fragment {
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                ((Callback) getActivity()).onItemSelected(position);
+                ((TrackSelectedCallback) getActivity()).onItemSelected(position);
             }
         });
 
@@ -177,7 +178,7 @@ public class TopTracksFragment extends Fragment {
                 queryParams.put("country", countryCode.toUpperCase());
                 Tracks tracks = spotify.getArtistTopTrack(searchArtistText, queryParams);
                 result = new ArrayList<>(tracks.tracks.size());
-                for (kaaes.spotify.webapi.android.models.Track track:tracks.tracks) {
+                for (kaaes.spotify.webapi.android.models.Track track : tracks.tracks) {
                     result.add(ModelConverter.fromSpotifyTrack(track));
                 }
             } catch (RetrofitError e) {
@@ -206,13 +207,6 @@ public class TopTracksFragment extends Fragment {
             realm.copyToRealm(tracks);
             realm.commitTransaction();
         }
-    }
-
-
-    public interface Callback {
-
-        void onItemSelected(int position);
-
     }
 
 }

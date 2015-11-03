@@ -20,8 +20,8 @@ public class SpotifyPlayerActivity extends AppCompatActivity {
             // using a fragment transaction.
 
             Bundle arguments = new Bundle();
-            arguments.putInt(TopTracksFragment.EXTRA_TRACK_POSITION,
-                    getIntent().getIntExtra(TopTracksFragment.EXTRA_TRACK_POSITION, 0));
+            arguments.putInt(TopTracksFragment.EXTRA_TRACK_ID,
+                    getIntent().getIntExtra(TopTracksFragment.EXTRA_TRACK_ID, 0));
 
             SpotifyPlayerFragment fragment = new SpotifyPlayerFragment();
             fragment.setArguments(arguments);
