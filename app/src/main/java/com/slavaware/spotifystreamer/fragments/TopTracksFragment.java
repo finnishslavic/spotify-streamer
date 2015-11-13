@@ -37,9 +37,6 @@ import retrofit.RetrofitError;
 
 public class TopTracksFragment extends Fragment {
 
-    public static final String SEARCH_RESULTS = "search_results";
-    public static final String EXTRA_TRACK_ID = "track_id";
-
     public static final String TAG = TopTracksActivity.class.getSimpleName();
 
     @InjectView(R.id.track_list)
@@ -54,7 +51,6 @@ public class TopTracksFragment extends Fragment {
     private String artistId;
     private String artistName;
     private Realm realm;
-
 
     @Nullable
     @Override

@@ -1,42 +1,38 @@
 package com.slavaware.spotifystreamer.fragments;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.media.AudioManager;
-import android.media.MediaPlayer;
-import android.net.Uri;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
-import android.util.Log;
+import android.support.v4.view.MenuItemCompat;
+import android.support.v7.widget.ShareActionProvider;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
-
-import com.slavaware.spotifystreamer.R;
-import com.slavaware.spotifystreamer.model.Track;
-import com.squareup.picasso.Picasso;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import butterknife.OnClick;
+import com.slavaware.spotifystreamer.R;
+import com.slavaware.spotifystreamer.model.Track;
+import com.slavaware.spotifystreamer.services.MusicPlaybackService;
+import com.squareup.picasso.Picasso;
 import io.realm.Realm;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
-public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer.OnPreparedListener,
-        AudioManager.OnAudioFocusChangeListener {
+public class SpotifyPlayerFragment extends DialogFragment {
 
     public static final String TAG = "SpotifyPlayerFragment";
-    public static final String EXTRA_IS_PAUSED = "extra_is_paused";
-    public static final String EXTRA_PAUSED_AT = "extra_paused_at";
 
     @InjectView(R.id.artist_text_view)
     TextView artistTextView;
@@ -62,15 +58,11 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
     @InjectView(R.id.track_duration_text_view)
     TextView trackDurationTextView;
 
-
-    private MediaPlayer mediaPlayer;
     private Realm realm;
     private List<Track> tracks;
     private int currentTrackIndex;
-    private boolean isPlayerPaused;
-    private int pausedAt;
-    private AudioManager audioManager;
-    private Handler handler;
+    private PlaybackUpdatesReceiver updatesReceiver = new PlaybackUpdatesReceiver();
+    private ShareActionProvider shareActionProvider;
 
     @Nullable
     @Override
@@ -79,222 +71,101 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
 
         ButterKnife.inject(this, rootView);
 
-        // init members
-        handler = new Handler();
+        // load current tracks data
         realm = Realm.getInstance(getActivity());
-        mediaPlayer = new MediaPlayer();
-        audioManager = ((AudioManager) getActivity().getSystemService(Context.AUDIO_SERVICE));
-        audioManager.requestAudioFocus(this, AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN);
-
-        // get extras
-        if (savedInstanceState == null) {
-            currentTrackIndex = getArguments().getInt(TopTracksFragment.EXTRA_TRACK_ID, 0);
-        } else {
-            pausedAt = savedInstanceState.getInt(EXTRA_PAUSED_AT, 0);
-            currentTrackIndex = savedInstanceState.getInt(TopTracksFragment.EXTRA_TRACK_ID);
-        }
-
-        // load data
         tracks = realm.allObjects(Track.class);
 
+        if (savedInstanceState == null) {
+            currentTrackIndex = getArguments().getInt(MusicPlaybackService.EXTRA_TRACK_ID, 0);
+        } else {
+            currentTrackIndex = savedInstanceState.getInt(MusicPlaybackService.EXTRA_TRACK_ID);
+        }
+
         initView(tracks.get(currentTrackIndex));
-        prepareOrContinuePlayback();
+        startPlaybackService(currentTrackIndex);
+
+        setHasOptionsMenu(true);
+
+        getActivity().registerReceiver(updatesReceiver,
+                new IntentFilter(MusicPlaybackService.ACTION_UPDATE_PLAYBACK_STATUS));
 
         return rootView;
     }
 
     @Override
-    public void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-
-        pausePlayback();
-        outState.putInt(EXTRA_PAUSED_AT, pausedAt);
-        outState.putInt(TopTracksFragment.EXTRA_TRACK_ID, currentTrackIndex);
+    public void onDestroyView() {
+        super.onDestroyView();
+        getActivity().unregisterReceiver(updatesReceiver);
     }
 
     @Override
-    public void onDestroyView() {
-        super.onDestroyView();
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        inflater.inflate(R.menu.playback_menu, menu);
 
-        mediaPlayer.release();
-        mediaPlayer = null;
+        MenuItem item = menu.findItem(R.id.action_share);
+
+        // Fetch and store ShareActionProvider
+        shareActionProvider = (ShareActionProvider) MenuItemCompat.getActionProvider(item);
+    }
+
+    // Call to update the share intent
+    private void setShareIntent(Intent shareIntent) {
+        if (shareActionProvider != null) {
+            shareActionProvider.setShareIntent(shareIntent);
+        }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.action_share) {
+            Intent myShareIntent = new Intent(Intent.ACTION_SEND);
+            myShareIntent.setType("text/plain");
+            myShareIntent.putExtra(Intent.EXTRA_TEXT,
+                    tracks.get(currentTrackIndex).getPreviewUrl());
+            setShareIntent(myShareIntent);
+            startActivity(Intent.createChooser(myShareIntent, "Send to"));
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 
     @OnClick(R.id.previous_track_button)
     public void onPreviousTrackButtonClicked(View v) {
-        stopPlayback();
         if (currentTrackIndex <= 0) {
             currentTrackIndex = tracks.size() - 1;
         } else {
             currentTrackIndex--;
         }
 
+        seekBar.setProgress(0);
         initView(tracks.get(currentTrackIndex));
-        prepareOrContinuePlayback();
+        performServerCommand(MusicPlaybackService.ACTION_CHANGE_TRACK, currentTrackIndex);
     }
 
     @OnClick(R.id.play_pause_button)
     public void onPlayPauseButtonClicked(View v) {
-        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-            pausePlayback();
-        } else {
-            prepareOrContinuePlayback();
-        }
+        pausePlaybackService();
     }
 
     @OnClick(R.id.next_track_button)
     public void onNextTrackButtonClicked(View v) {
-        stopPlayback();
         if (currentTrackIndex <= 0) {
             currentTrackIndex = tracks.size() - 1;
         } else {
             currentTrackIndex--;
         }
 
+        seekBar.setProgress(0);
         initView(tracks.get(currentTrackIndex));
-        prepareOrContinuePlayback();
-    }
-
-    private void initView(final Track currentTrack) {
-        currentPlaybackTimeTextView.setText(formatTime(0));
-        trackDurationTextView.setText(formatTime(currentTrack.getDuration()));
-        artistTextView.setText(currentTrack.getArtistName());
-        albumTextView.setText(currentTrack.getAlbumName());
-        trackTitleTextView.setText(currentTrack.getName());
-        seekBar.setEnabled(false);
-
-        Picasso.with(getActivity())
-                .load(currentTrack.getPhotoUrl())
-                .fit()
-                .centerCrop()
-                .into(albumCoverImageView);
-    }
-
-    private void prepareOrContinuePlayback() {
-        if (isPlayerPaused) {
-            startPlayback();
-        } else {
-            final Track track = tracks.get(currentTrackIndex);
-            try {
-                mediaPlayer.reset();
-                mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-                mediaPlayer.setDataSource(getActivity(), Uri.parse(track.getPreviewUrl()));
-                mediaPlayer.prepareAsync();
-                mediaPlayer.setOnPreparedListener(this);
-            } catch (IOException e) {
-                Log.e(TAG, "Unable to prepare media player", e);
-                Toast.makeText(getActivity(), "Playback error", Toast.LENGTH_SHORT).show();
-                return;
-            }
-        }
-
-        playPauseButton.setImageResource(android.R.drawable.ic_media_pause);
-    }
-
-    private void startPlayback() {
-        mediaPlayer.start();
-        isPlayerPaused = false;
-
-        getActivity().runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-                    int currentPosition = mediaPlayer.getCurrentPosition();
-                    seekBar.setProgress(currentPosition);
-                    currentPlaybackTimeTextView.setText(formatTime(currentPosition));
-                    handler.postDelayed(this, 1000);
-                }
-            }
-        });
-
-        // This is a little creepy
-        final int previewDuration = mediaPlayer.getDuration();
-        trackDurationTextView.setText(formatTime(previewDuration));
-
-        seekBar.setMax(previewDuration);
-        seekBar.setEnabled(true);
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if (fromUser) {
-                    mediaPlayer.seekTo(seekBar.getProgress());
-                    currentPlaybackTimeTextView.setText(formatTime(seekBar.getProgress()));
-                }
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-            }
-        });
-
-        if (pausedAt > 0) {
-            mediaPlayer.seekTo(pausedAt);
-        }
-    }
-
-    private void stopPlayback() {
-        if (mediaPlayer != null) {
-            mediaPlayer.stop();
-            mediaPlayer.reset();
-
-            seekBar.setProgress(0);
-            isPlayerPaused = false;
-            pausedAt = 0;
-        }
-
-        playPauseButton.setImageResource(android.R.drawable.ic_media_play);
-        seekBar.setEnabled(false);
-    }
-
-    private void pausePlayback() {
-        if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-            mediaPlayer.pause();
-            pausedAt = mediaPlayer.getCurrentPosition();
-            isPlayerPaused = true;
-        }
-
-        playPauseButton.setImageResource(android.R.drawable.ic_media_play);
-    }
-
-    @Override
-    public void onPrepared(MediaPlayer mp) {
-        startPlayback();
-    }
-
-    @Override
-    public void onAudioFocusChange(int focusChange) {
-        switch (focusChange) {
-            case AudioManager.AUDIOFOCUS_GAIN:
-                // resume playback
-                if (mediaPlayer.isPlaying()) {
-                    mediaPlayer.setVolume(1.0f, 1.0f);
-                }
-
-                break;
-
-            case AudioManager.AUDIOFOCUS_LOSS:
-                // Lost focus for an unbounded amount of time: stop playback and release media player
-                stopPlayback();
-                break;
-
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-                // Lost focus for a short time, but we have to stop
-                // playback. We don't release the media player because playback
-                // is likely to resume
-                pausePlayback();
-                break;
-
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                // Lost focus for a short time, but it's ok to keep playing
-                // at an attenuated level
-                if (mediaPlayer.isPlaying()) mediaPlayer.setVolume(0.1f, 0.1f);
-                break;
-        }
+        performServerCommand(MusicPlaybackService.ACTION_CHANGE_TRACK, currentTrackIndex);
     }
 
     public static String formatTime(long millis) {
@@ -316,5 +187,87 @@ public class SpotifyPlayerFragment extends DialogFragment implements MediaPlayer
 
         timeFormat.append(seconds);
         return timeFormat.toString();
+    }
+
+    private void initView(final Track currentTrack) {
+        currentPlaybackTimeTextView.setText(formatTime(0));
+        trackDurationTextView.setText(formatTime(currentTrack.getDuration()));
+        artistTextView.setText(currentTrack.getArtistName());
+        albumTextView.setText(currentTrack.getAlbumName());
+        trackTitleTextView.setText(currentTrack.getName());
+        seekBar.setEnabled(false);
+
+        Picasso.with(getActivity())
+                .load(currentTrack.getPhotoUrl())
+                .fit()
+                .centerCrop()
+                .into(albumCoverImageView);
+    }
+
+    private void startPlaybackService(int trackIndex) {
+        performServerCommand(MusicPlaybackService.ACTION_PLAY, trackIndex);
+    }
+
+    private void pausePlaybackService() {
+        performServerCommand(MusicPlaybackService.ACTION_PAUSE, currentTrackIndex);
+    }
+
+    private void performServerCommand(final String action, final int trackIndex) {
+        Intent musicPlayback = new Intent(getActivity(), MusicPlaybackService.class);
+        musicPlayback.setAction(action);
+        musicPlayback.putExtra(MusicPlaybackService.EXTRA_TRACK_ID, trackIndex);
+        musicPlayback.putExtra(MusicPlaybackService.EXTRA_PAUSED_AT, seekBar.getProgress());
+        getActivity().startService(musicPlayback);
+    }
+
+    private void updatePlaybackStatus(MusicPlaybackService.PlaybackStatus status, int trackDuration, int currentPosition) {
+        if (status == MusicPlaybackService.PlaybackStatus.PLAYING) {
+            playPauseButton.setImageResource(android.R.drawable.ic_media_pause);
+
+            seekBar.setMax(trackDuration);
+            seekBar.setEnabled(true);
+            seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override
+                public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                    if (fromUser) {
+                        currentPlaybackTimeTextView.setText(formatTime(seekBar.getProgress()));
+                        performServerCommand(MusicPlaybackService.ACTION_PLAY, currentTrackIndex);
+                    }
+                }
+
+                @Override
+                public void onStartTrackingTouch(SeekBar seekBar) {
+                }
+
+                @Override
+                public void onStopTrackingTouch(SeekBar seekBar) {
+                }
+            });
+
+            seekBar.setProgress(currentPosition);
+            currentPlaybackTimeTextView.setText(formatTime(currentPosition));
+        } else if (status == MusicPlaybackService.PlaybackStatus.PAUSED) {
+            playPauseButton.setImageResource(android.R.drawable.ic_media_play);
+        } else if (status == MusicPlaybackService.PlaybackStatus.STOPPED) {
+            playPauseButton.setImageResource(android.R.drawable.ic_media_play);
+            seekBar.setEnabled(false);
+        }
+
+        trackDurationTextView.setText(formatTime(trackDuration));
+    }
+
+    private class PlaybackUpdatesReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final Bundle extras = intent.getExtras();
+
+            MusicPlaybackService.PlaybackStatus status =
+                    MusicPlaybackService.PlaybackStatus.valueOf(extras.getString(MusicPlaybackService.EXTRA_PLAYBACK_STATUS));
+            int trackDuration = extras.getInt(MusicPlaybackService.EXTRA_TRACK_LENGTH);
+            int currentPosition = extras.getInt(MusicPlaybackService.EXTRA_CURRENT_PROGRESS);
+
+            updatePlaybackStatus(status, trackDuration, currentPosition);
+        }
     }
 }

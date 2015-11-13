@@ -1,12 +1,14 @@
 package com.slavaware.spotifystreamer;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-
 import com.slavaware.spotifystreamer.fragments.SpotifySearchFragment;
 import com.slavaware.spotifystreamer.fragments.TopTracksFragment;
+import com.slavaware.spotifystreamer.services.MusicPlaybackService;
+import com.slavaware.spotifystreamer.utils.TrackSelectedCallback;
 
-public class TopTracksActivity extends AppCompatActivity {
+public class TopTracksActivity extends AppCompatActivity implements TrackSelectedCallback {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -31,11 +33,11 @@ public class TopTracksActivity extends AppCompatActivity {
                     .commit();
         }
 
-//        ActionBar actionBar = getSupportActionBar();
-//        actionBar.setTitle(R.string.top_tracks_activity_title);
-//        artistName = data.getString(SpotifySearchActivity.ARTIST_NAME_KEY);
-//        actionBar.setSubtitle(artistName);
-//        actionBar.setDisplayHomeAsUpEnabled(true);
+        //        ActionBar actionBar = getSupportActionBar();
+        //        actionBar.setTitle(R.string.top_tracks_activity_title);
+        //        artistName = data.getString(SpotifySearchActivity.ARTIST_NAME_KEY);
+        //        actionBar.setSubtitle(artistName);
+        //        actionBar.setDisplayHomeAsUpEnabled(true);
     }
 
     @Override
@@ -43,4 +45,10 @@ public class TopTracksActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    @Override
+    public void onItemSelected(int position) {
+        Intent playTrack = new Intent(this, SpotifyPlayerActivity.class);
+        playTrack.putExtra(MusicPlaybackService.EXTRA_TRACK_ID, position);
+        startActivity(playTrack);
+    }
 }

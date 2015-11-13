@@ -2,9 +2,8 @@ package com.slavaware.spotifystreamer;
 
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-
 import com.slavaware.spotifystreamer.fragments.SpotifyPlayerFragment;
-import com.slavaware.spotifystreamer.fragments.TopTracksFragment;
+import com.slavaware.spotifystreamer.services.MusicPlaybackService;
 
 public class SpotifyPlayerActivity extends AppCompatActivity {
 
@@ -20,8 +19,8 @@ public class SpotifyPlayerActivity extends AppCompatActivity {
             // using a fragment transaction.
 
             Bundle arguments = new Bundle();
-            arguments.putInt(TopTracksFragment.EXTRA_TRACK_ID,
-                    getIntent().getIntExtra(TopTracksFragment.EXTRA_TRACK_ID, 0));
+            arguments.putInt(MusicPlaybackService.EXTRA_TRACK_ID,
+                    getIntent().getIntExtra(MusicPlaybackService.EXTRA_TRACK_ID, 0));
 
             SpotifyPlayerFragment fragment = new SpotifyPlayerFragment();
             fragment.setArguments(arguments);
@@ -31,5 +30,4 @@ public class SpotifyPlayerActivity extends AppCompatActivity {
                     .commit();
         }
     }
-
 }

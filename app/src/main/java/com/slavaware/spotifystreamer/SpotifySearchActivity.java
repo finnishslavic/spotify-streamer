@@ -8,10 +8,10 @@ import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
-
 import com.slavaware.spotifystreamer.fragments.SpotifyPlayerFragment;
 import com.slavaware.spotifystreamer.fragments.SpotifySearchFragment;
 import com.slavaware.spotifystreamer.fragments.TopTracksFragment;
+import com.slavaware.spotifystreamer.services.MusicPlaybackService;
 import com.slavaware.spotifystreamer.utils.ArtistSelectedCallback;
 import com.slavaware.spotifystreamer.utils.Strings;
 import com.slavaware.spotifystreamer.utils.TrackSelectedCallback;
@@ -19,7 +19,7 @@ import com.slavaware.spotifystreamer.utils.TrackSelectedCallback;
 public class SpotifySearchActivity extends AppCompatActivity implements ArtistSelectedCallback,
         TrackSelectedCallback {
 
-    private final String LOG_TAG = SpotifySearchActivity.class.getSimpleName();
+    private final String TAG = SpotifySearchActivity.class.getSimpleName();
 
     private static final String TOP_TRACK_TAG = "TOP_TRACK_FRAGMENT";
 
@@ -80,18 +80,17 @@ public class SpotifySearchActivity extends AppCompatActivity implements ArtistSe
         }
     }
 
-
     @Override
     public void onItemSelected(int position) {
         if (!twoPane) {
             Intent playTrack = new Intent(this, SpotifyPlayerActivity.class);
-            playTrack.putExtra(TopTracksFragment.EXTRA_TRACK_ID, position);
+            playTrack.putExtra(MusicPlaybackService.EXTRA_TRACK_ID, position);
             startActivity(playTrack);
         } else {
             FragmentManager fm = getSupportFragmentManager();
             SpotifyPlayerFragment spotifyPlayerDialog = new SpotifyPlayerFragment();
             Bundle arguments = new Bundle();
-            arguments.putInt(TopTracksFragment.EXTRA_TRACK_ID, position);
+            arguments.putInt(MusicPlaybackService.EXTRA_TRACK_ID, position);
             spotifyPlayerDialog.setArguments(arguments);
             spotifyPlayerDialog.show(fm, "fragment_spotify_dialog");
         }
@@ -125,5 +124,4 @@ public class SpotifySearchActivity extends AppCompatActivity implements ArtistSe
 
         return super.onOptionsItemSelected(item);
     }
-
 }

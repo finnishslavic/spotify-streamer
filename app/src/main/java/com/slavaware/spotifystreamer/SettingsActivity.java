@@ -8,7 +8,6 @@ import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
 import android.preference.PreferenceManager;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -27,18 +26,18 @@ public class SettingsActivity extends PreferenceActivity implements Preference.O
         String[] locales = Locale.getISOCountries();
         List<String> countryNames = new ArrayList<>(locales.length);
         List<String> countryCodes = new ArrayList<>(locales.length);
-        for (String countryCode:locales) {
+        for (String countryCode : locales) {
             Locale locale = new Locale("", countryCode);
             countryNames.add(locale.getDisplayCountry());
             countryCodes.add(countryCode);
         }
 
         ListPreference countryPref = (ListPreference) findPreference(getString(R.string.settings_country_key));
-        countryPref.setEntries((String[]) countryNames.toArray());
-        countryPref.setEntryValues((String[]) countryCodes.toArray());
+        countryPref.setEntries(countryNames.toArray(new String[countryNames.size()]));
+        countryPref.setEntryValues(countryCodes.toArray(new String[countryCodes.size()]));
 
         bindPreferenceSummaryToValue(countryPref);
-}
+    }
 
     /**
      * Attaches a listener so the summary is always updated with the preference value.
