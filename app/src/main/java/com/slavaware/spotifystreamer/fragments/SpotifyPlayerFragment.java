@@ -64,6 +64,12 @@ public class SpotifyPlayerFragment extends DialogFragment {
     private PlaybackUpdatesReceiver updatesReceiver = new PlaybackUpdatesReceiver();
     private ShareActionProvider shareActionProvider;
 
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -83,8 +89,6 @@ public class SpotifyPlayerFragment extends DialogFragment {
 
         initView(tracks.get(currentTrackIndex));
         startPlaybackService(currentTrackIndex);
-
-        setHasOptionsMenu(true);
 
         getActivity().registerReceiver(updatesReceiver,
                 new IntentFilter(MusicPlaybackService.ACTION_UPDATE_PLAYBACK_STATUS));
